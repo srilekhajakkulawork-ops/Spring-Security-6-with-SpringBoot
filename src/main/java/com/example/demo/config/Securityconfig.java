@@ -3,6 +3,7 @@ package com.example.demo.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -29,17 +30,46 @@ public class Securityconfig {
 	@Autowired
 	private JwtFilter jwtFilter;
 	
+	@Bean @Order(1)
+	  SecurityFilterChain api(HttpSecurity http) throws Exception {
+	    return http
+	        .securityMatcher("/api/**")
+	        .csrf(csrf -> csrf.disable())
+	        .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+	        .authorizeHttpRequests(req -> req
+	            .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+	            .anyRequest().authenticated())
+	        .authenticationProvider(authenticationProvider())
+	        .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+	        .build();
+    }
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-	return http.csrf(Customizer -> Customizer.disable())
-		.authorizeHttpRequests(request -> request
-				.requestMatchers("register", "login")
-				.permitAll()
-				.anyRequest().authenticated())
-		.httpBasic(Customizer.withDefaults())
-		.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-		.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-		.build();
+	@Order(2)
+	SecurityFilterChain web(HttpSecurity http) throws Exception {
+	    return http
+	        .csrf(csrf -> csrf.disable())
+	        .authorizeHttpRequests(req -> req
+	            .requestMatchers(
+	                "/login", "/register-page", "/register",
+	                "/oauth2/**", "/login/oauth2/**",
+	                "/css/**", "/js/**", "/images/**", "/error"
+	            ).permitAll()
+	            .anyRequest().authenticated()
+	        )
+	       
+	        .formLogin(form -> form
+	            .loginPage("/login")                 
+	            .loginProcessingUrl("/login")        
+	            .defaultSuccessUrl("/students", true)
+	            .failureUrl("/login?error")          
+	            .permitAll()
+	        )
+	        .oauth2Login(oauth -> oauth
+	            .loginPage("/login")
+	            .defaultSuccessUrl("/students", true)
+	        )
+	        
+	        .build();
 	}
 	
 	@Bean
